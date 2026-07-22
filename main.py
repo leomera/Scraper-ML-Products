@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import re
 from playwright.async_api import async_playwright
-from playwright_stealth import Stealth # Nova importação da v2.0+
+from playwright_stealth import Stealth
 
 app = FastAPI(title="API Mercado Livre Scraper")
 
@@ -15,7 +15,7 @@ async def get_mlb_mae(request: ItemRequest):
     formatted_id = item_id.replace("MLB", "MLB-") if "-" not in item_id else item_id
     url = f"https://produto.mercadolivre.com.br/{formatted_id}"
 
-    # A camuflagem agora intercepta e protege todo o ambiente Playwright
+    # A camuflagem intercepta e protege todo o ambiente Playwright
     async with Stealth().use_async(async_playwright()) as p:
         browser = await p.chromium.launch(
             headless=True,
@@ -23,8 +23,8 @@ async def get_mlb_mae(request: ItemRequest):
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--single-process'
+                '--disable-gpu'
+                # A flag '--single-process' foi removida daqui
             ]
         )
         context = await browser.new_context(
