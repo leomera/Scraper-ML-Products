@@ -2,10 +2,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import re
 from playwright.async_api import async_playwright
+from playwright_stealth import stealth_async # NOVA IMPORTAÇÃO AQUI
 
 app = FastAPI(title="API Mercado Livre Scraper")
 
-# Define o formato que o n8n vai mandar (um JSON com o item_id)
 class ItemRequest(BaseModel):
     item_id: str
 
@@ -16,40 +16,47 @@ async def get_mlb_mae(request: ItemRequest):
     url = f"https://produto.mercadolivre.com.br/{formatted_id}"
 
     async with async_playwright() as p:
-        # Lança o navegador com flags para rodar em servidores na nuvem
-        browser = await p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox'])
+        browser = await p.chromium.launch(
+            headless=True,
+            args=[
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--single-process'
+            ]
+        )
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         )
-        await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
         
         page = await context.new_page()
         
-        # Bloqueia o carregamento de imagens e CSS para a requisição voar
+        # APLICA A CAMUFLAGEM CONTRA O AKAMAI BOT MANAGER
+        await stealth_async(page)
+        
+        # Bloqueia recursos visuais para acelerar e despistar
         await page.route("**/*", lambda route: route.abort() if route.request.resource_type in ["image", "media", "font", "stylesheet"] else route.continue_())
 
         try:
             await page.goto(url, wait_until="domcontentloaded", timeout=15000)
             html_content = await page.content()
-            
-            # Pega o título da página para sabermos onde o robô caiu
             page_title = await page.title()
             
-            # Regex mais inteligente que ignora espaços antes ou depois dos dois pontos
             match = re.search(r'"catalog_product_id"\s*:\s*"(MLB\d+)"', html_content)
             
             if match:
                 return {
                     "item_id": item_id, 
                     "catalog_product_id": match.group(1), 
-                    "titulo_pagina": page_title,
+                    "titulo_pagina": page_title, 
                     "status": "sucesso"
                 }
             else:
                 return {
                     "item_id": item_id, 
                     "erro": "Catálogo não encontrado no HTML", 
-                    "titulo_pagina": page_title, # Aqui está a nossa pista!
+                    "titulo_pagina": page_title, 
                     "status": "nao_encontrado"
                 }
                 
