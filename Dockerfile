@@ -1,5 +1,5 @@
-# Usa a imagem oficial do Playwright com Python embutido
-FROM mcr.microsoft.com/playwright/python:v1.43.0-jammy
+# Usa a imagem oficial do Playwright na versão EXATA que o requirements instalou
+FROM mcr.microsoft.com/playwright/python:v1.61.0-jammy
 
 WORKDIR /app
 
