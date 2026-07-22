@@ -32,13 +32,26 @@ async def get_mlb_mae(request: ItemRequest):
             await page.goto(url, wait_until="domcontentloaded", timeout=15000)
             html_content = await page.content()
             
-            # Executa o regex para encontrar o catálogo
-            match = re.search(r'"catalog_product_id":"(MLB\d+)"', html_content)
+            # Pega o título da página para sabermos onde o robô caiu
+            page_title = await page.title()
+            
+            # Regex mais inteligente que ignora espaços antes ou depois dos dois pontos
+            match = re.search(r'"catalog_product_id"\s*:\s*"(MLB\d+)"', html_content)
             
             if match:
-                return {"item_id": item_id, "catalog_product_id": match.group(1), "status": "sucesso"}
+                return {
+                    "item_id": item_id, 
+                    "catalog_product_id": match.group(1), 
+                    "titulo_pagina": page_title,
+                    "status": "sucesso"
+                }
             else:
-                return {"item_id": item_id, "erro": "Catálogo não encontrado no HTML", "status": "nao_encontrado"}
+                return {
+                    "item_id": item_id, 
+                    "erro": "Catálogo não encontrado no HTML", 
+                    "titulo_pagina": page_title, # Aqui está a nossa pista!
+                    "status": "nao_encontrado"
+                }
                 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Erro no scraper: {str(e)}")
